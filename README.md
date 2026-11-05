@@ -4,7 +4,7 @@ Cloudflare Workers + D1 ile çalışan, Türkçe ve mobil uyumlu stok yönetimi.
 
 ## İçerik
 
-- `worker.js`: Cloudflare Worker API, D1 ürün ve stok hareketi kayıtları, Cloudflare Access JWT doğrulaması.
+- `worker.js`: Cloudflare Worker API, D1 ürün ve stok hareketi kayıtları, uygulama parolası oturum doğrulaması.
 - `index.html`, `app.js`, `style.css`, `manifest.json`: uygulama arayüzü.
 - `stok-weltew-urunler.json`: ilk stok aktarım dosyası.
 - `wrangler.toml`: Worker, statik dosya ve D1 bağlantı tanımı.
