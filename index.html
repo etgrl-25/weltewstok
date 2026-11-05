@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#123c36"><title>Weltew Stok Yönetimi</title>
+  <link rel="manifest" href="/manifest.json"><link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="top"><div class="brand"><span class="logo">W</span><div><b>Weltew Stok</b><small>Stok Yönetimi</small></div></div><button id="importBtn" class="ghost">Excel’den ürün aktar</button><input id="file" type="file" accept=".json,application/json" hidden></header>
+  <main>
+    <section class="welcome"><div><p class="eyebrow">ELİT HOME · NORMAL DEPO</p><h1>Stoklarınız, tek yerde.</h1><p>Ürünleri yönetin, stok giriş ve çıkışlarını takip edin.</p></div><button id="addBtn" class="primary">＋ Ürün ekle</button></section>
+    <section class="stats"><article><span>Ürün çeşidi</span><strong id="count">—</strong></article><article><span>Toplam miktar</span><strong id="quantity">—</strong></article><article><span>Stok maliyeti</span><strong id="value">—</strong></article><article><span>Stoksuz ürün</span><strong id="empty">—</strong></article></section>
+    <section class="panel"><div class="toolbar"><div><h2>Ürünler</h2><p id="desc">Yükleniyor…</p></div><div class="filters"><input id="search" placeholder="Ürün veya kod ara"><select id="category"><option value="">Tüm kategoriler</option></select></div></div>
+    <div class="table-wrap"><table><thead><tr><th>ÜRÜN</th><th>ÜRÜN KODU</th><th>KATEGORİ</th><th>DEPO</th><th>MİKTAR</th><th>ALIŞ MALİYETİ</th><th></th></tr></thead><tbody id="rows"></tbody></table></div><div id="emptyState" class="empty" hidden>Ürün bulunamadı.</div>
+    </section>
+  </main>
+  <dialog id="formDialog"><form id="productForm" method="dialog"><div class="dialog-head"><h2 id="formTitle">Ürün ekle</h2><button type="button" class="close" id="closeForm">×</button></div><input type="hidden" name="id"><label>Ürün adı<input name="name" required></label><div class="two"><label>Ürün kodu<input name="sku" required></label><label>Kategori<input name="category"></label></div><div class="two"><label>Miktar<input name="qty" type="number" step="0.01" required></label><label>Birim<input name="unit" value="adet"></label></div><div class="two"><label>Alış maliyeti (₺)<input name="buy" type="number" step="0.01"></label><label>Minimum stok<input name="min" type="number" step="0.01"></label></div><label>Ambar<input name="warehouse"></label><div class="actions"><button type="button" class="ghost" id="cancelForm">Vazgeç</button><button class="primary" type="submit">Kaydet</button></div></form></dialog>
+  <div id="toast" role="status"></div><script src="/app.js" defer></script>
+</body></html>
