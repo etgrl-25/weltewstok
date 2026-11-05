@@ -25,5 +25,6 @@ $("#rows").addEventListener("click",async e=>{const b=e.target.closest("button")
  const type=prompt("İşlem türü: giris / cikis / duzeltme","giris");if(!["giris","cikis","duzeltme"].includes(type))return;const amount=Number(prompt(type==="duzeltme"?"Yeni sayım miktarı":"İşlem miktarı","1"));if(!Number.isFinite(amount)||amount<0)return;const note=prompt("Açıklama (isteğe bağlı)","")||"";try{await api("/api/movements",{method:"POST",body:JSON.stringify({productId:id,type,qty:amount,note})});toast("Stok hareketi kaydedildi");await load()}catch(err){toast(err.message)}
 });
 $("#importBtn").addEventListener("click",()=>$("#file").click());
+$("#logoutBtn").addEventListener("click",async()=>{await fetch("/api/logout",{method:"POST"});location.reload()});
 $("#file").addEventListener("change",async e=>{const file=e.target.files[0];if(!file)return;try{const records=JSON.parse(await file.text());if(!Array.isArray(records))throw new Error("JSON dosyasında ürün listesi bulunamadı");const result=await api("/api/import",{method:"POST",body:JSON.stringify(records)});toast(`${number(result.imported)} ürün aktarıldı`);await load()}catch(err){toast(err.message)}finally{e.target.value=""}});
 load();

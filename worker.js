@@ -1,21 +1,38 @@
 const headers = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 
+const encoder = new TextEncoder();
+const b64url = bytes => btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
+const fromB64url = value => { const b=value.replace(/-/g,"+").replace(/_/g,"/"); return Uint8Array.from(atob(b.padEnd(Math.ceil(b.length/4)*4,"=")),c=>c.charCodeAt(0)); };
+function cookie(request) { return (request.headers.get("Cookie")||"").split(";").map(x=>x.trim()).find(x=>x.startsWith("weltewstok_session="))?.slice("weltewstok_session=".length); }
+async function sessionKey(env) {
+  if (!env.APP_PASSWORD || env.APP_PASSWORD.length < 16) return null;
+  return crypto.subtle.importKey("raw", encoder.encode(env.APP_PASSWORD), { name: "HMAC", hash: "SHA-256" }, false, ["sign", "verify"]);
+}
 async function authorized(request, env) {
-  const token = request.headers.get("Cf-Access-Jwt-Assertion");
-  if (!token || !env.ACCESS_ISSUER || !env.ACCESS_AUD) return false;
   try {
-    const [h, p, sig] = token.split(".");
-    const head = JSON.parse(atob(h.replace(/-/g, "+").replace(/_/g, "/")));
-    const payload = JSON.parse(atob(p.replace(/-/g, "+").replace(/_/g, "/")));
-    if (payload.iss !== env.ACCESS_ISSUER || ![].concat(payload.aud || []).includes(env.ACCESS_AUD) || payload.exp * 1000 < Date.now()) return false;
-    const certs = await fetch(`${env.ACCESS_ISSUER}/cdn-cgi/access/certs`).then(r => r.json());
-    const jwk = certs.keys.find(k => k.kid === head.kid);
-    if (!jwk) return false;
-    const key = await crypto.subtle.importKey("jwk", jwk, { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" }, false, ["verify"]);
-    const bytes = Uint8Array.from(atob(sig.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
-    return await crypto.subtle.verify("RSASSA-PKCS1-v1_5", key, bytes, new TextEncoder().encode(`${h}.${p}`));
+    const token = cookie(request), key = await sessionKey(env);
+    if (!token || !key) return false;
+    const [payload, signature] = token.split(".");
+    const expires = Number(new TextDecoder().decode(fromB64url(payload)));
+    if (!Number.isFinite(expires) || expires <= Date.now()) return false;
+    return crypto.subtle.verify("HMAC", key, fromB64url(signature), encoder.encode(payload));
   } catch { return false; }
 }
+async function login(request, env) {
+  if (request.method !== "POST") return new Response("Method not allowed", { status: 405 });
+  if (!env.APP_PASSWORD || env.APP_PASSWORD.length < 16) return Response.json({ error: "Cloudflare'da APP_PASSWORD adlı gizli ayara en az 16 karakterli bir parola ekleyin." }, { status: 503, headers });
+  try {
+    const body = await request.json();
+    const actual = new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(String(body.password||""))));
+    const expected = new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(env.APP_PASSWORD)));
+    let diff = 0; for (let i=0;i<actual.length;i++) diff |= actual[i]^expected[i];
+    if (diff !== 0) return Response.json({ error: "Parola yanlış" }, { status: 401, headers });
+    const key = await sessionKey(env), expires = Date.now() + 8*60*60*1000, payload = b64url(encoder.encode(String(expires)));
+    const signature = b64url(await crypto.subtle.sign("HMAC", key, encoder.encode(payload)));
+    return Response.json({ ok: true }, { headers: { ...headers, "set-cookie": `weltewstok_session=${payload}.${signature}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=28800` } });
+  } catch { return Response.json({ error: "Giriş bilgisi okunamadı" }, { status: 400, headers }); }
+}
+const loginPage = `<!doctype html><html lang="tr"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#123c36"><title>Weltew Stok · Giriş</title><body style="margin:0;min-height:100vh;display:grid;place-items:center;background:#f5f7f4;font:16px system-ui;color:#172a26"><form id="loginForm" style="width:min(360px,calc(100% - 40px));padding:30px;background:#fff;border:1px solid #e6ebe7;border-radius:18px;box-shadow:0 18px 60px #123c3615"><div style="width:42px;height:42px;display:grid;place-items:center;border-radius:12px;background:#123c36;color:white;font-size:21px;font-weight:bold">W</div><h1 style="font-size:23px;margin:18px 0 6px">Weltew Stok</h1><p style="color:#71817b;margin:0 0 22px">Devam etmek için parolanızı girin.</p><label for="password" style="font-size:13px;font-weight:700">Uygulama parolası</label><input id="password" type="password" required autocomplete="current-password" autofocus style="width:100%;box-sizing:border-box;height:46px;margin:8px 0 14px;padding:0 12px;border:1px solid #dfe7e1;border-radius:9px;font:inherit"><button style="width:100%;height:45px;border:0;border-radius:9px;background:#123c36;color:#fff;font:700 14px system-ui;cursor:pointer">Giriş yap</button><p id="error" role="status" style="color:#b85541;font-size:13px;min-height:18px"></p></form><script>const form=document.querySelector('#loginForm'),input=document.querySelector('#password'),status=document.querySelector('#error');form.addEventListener('submit',async event=>{event.preventDefault();const button=form.querySelector('button');button.disabled=true;status.textContent='';try{const response=await fetch('/api/login',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({password:input.value})});const data=await response.json().catch(()=>({}));if(!response.ok)throw Error(data.error||'Giriş başarısız');location.reload()}catch(error){status.textContent=error.message;button.disabled=false}});</script></body></html>`;
 
 const schema = `CREATE TABLE IF NOT EXISTS products (
  id TEXT PRIMARY KEY, sku TEXT NOT NULL UNIQUE, name TEXT NOT NULL, category TEXT NOT NULL DEFAULT '',
@@ -102,7 +119,12 @@ async function api(request, env, url) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (!(await authorized(request, env))) return new Response("Bu uygulama için Cloudflare Access girişi gerekiyor.", { status: 401, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
+    if (url.pathname === "/api/login") return login(request, env);
+    if (url.pathname === "/api/logout" && request.method === "POST") return new Response(null,{status:204,headers:{"set-cookie":"weltewstok_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0","cache-control":"no-store"}});
+    if (!(await authorized(request, env))) {
+      if (url.pathname.startsWith("/api/")) return Response.json({ error: "Giriş yapmanız gerekiyor" }, { status: 401, headers });
+      return new Response(loginPage,{headers:{"content-type":"text/html; charset=utf-8","cache-control":"no-store"}});
+    }
     if (url.pathname.startsWith("/api/")) return api(request, env, url);
     if (env.ASSETS) return env.ASSETS.fetch(request);
     return new Response("StokTakip dosyaları eksik", { status: 503 });
