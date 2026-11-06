@@ -42,6 +42,17 @@ async function api(request, env, url) {
   if (!env.DB) return Response.json({ error: "Veritabanı bağlantısı henüz yapılmadı" }, { status: 503, headers });
   await env.DB.exec(schema);
   const path = url.pathname;
+  if (path === "/api/stock/reset" && request.method === "POST") {
+    const body = await request.json().catch(() => ({}));
+    if (!env.STOCK_RESET_PASSWORD) return Response.json({ error: "Stok sıfırlama şifresi sunucuda henüz ayarlanmamış." }, { status: 503, headers });
+    if (body.password !== env.STOCK_RESET_PASSWORD) return Response.json({ error: "Şifre yanlış. Stoklar değiştirilmedi." }, { status: 403, headers });
+    // D1 batch is transactional: movement history and quantities change together.
+    const results = await env.DB.batch([
+      env.DB.prepare("INSERT INTO movements(id,product_id,product_name,type,qty,before_qty,after_qty,note) SELECT lower(hex(randomblob(16))),id,name,'duzeltme',0,qty,0,'Toplu stok sıfırlama' FROM products WHERE qty != 0"),
+      env.DB.prepare("UPDATE products SET qty=0 WHERE qty != 0")
+    ]);
+    return Response.json({ ok: true, reset: results[1].meta.changes }, { headers });
+  }
   if (path === "/api/products" && request.method === "GET") {
     const imported = await env.DB.prepare("SELECT value FROM app_meta WHERE key='inventory_import_done'").first();
     if (!imported && env.ASSETS) {

@@ -18,3 +18,7 @@ Giriş için herhangi bir geçerli e-posta adresi yazılabilir; doğrulama veya 
 3. GitHub `main` dalı dağıtıldığında Worker yeniden yayınlanır. Veritabanı tabloları uygulamanın ilk isteğinde hazırlanır.
 
 Ürün aktarımı ilk açılışta `stok-weltew-urunler.json` üzerinden yapılır. Uygulama içinde daha sonra JSON dosyasından yeniden içe aktarma düğmesi de bulunur. Dosyadaki boş barkodlar boş kalır; Excel'deki stok miktarı, ürün kodu, ürün adı, depo, aile/grup ve maliyet alanları korunur.
+
+## Toplu stok sıfırlama
+
+Cloudflare Worker gizli ayarlarına STOCK_RESET_PASSWORD ekleyin. Şifre sunucuda doğrulanır; ayar yoksa sıfırlama engellenir. Buton tüm ürün miktarlarını sıfırlar, ürünleri korur ve stok hareketi kaydeder.

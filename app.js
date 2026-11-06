@@ -27,4 +27,18 @@ $("#rows").addEventListener("click",async e=>{const b=e.target.closest("button")
 $("#importBtn").addEventListener("click",()=>$("#file").click());
 $("#logoutBtn").addEventListener("click",async()=>{await fetch("/api/logout",{method:"POST"});location.reload()});
 $("#file").addEventListener("change",async e=>{const file=e.target.files[0];if(!file)return;try{const records=JSON.parse(await file.text());if(!Array.isArray(records))throw new Error("JSON dosyasında ürün listesi bulunamadı");const result=await api("/api/import",{method:"POST",body:JSON.stringify(records)});toast(`${number(result.imported)} ürün aktarıldı`);await load()}catch(err){toast(err.message)}finally{e.target.value=""}});
+let resetting = false;
+$("#resetStockBtn").addEventListener("click",()=>{ $("#resetForm").reset(); $("#resetError").textContent=""; $("#resetDialog").showModal(); });
+$("#cancelReset").addEventListener("click",()=>$("#resetDialog").close());
+$("#resetDialog").addEventListener("close",()=>{ $("#resetPassword").value=""; });
+$("#resetDialog").addEventListener("cancel",e=>{ if(resetting)e.preventDefault(); });
+$("#resetForm").addEventListener("submit",async e=>{
+ e.preventDefault(); if(resetting)return;
+ if(!confirm("Tüm ürünlerin stok miktarı 0 olacak. Devam edilsin mi?"))return;
+ resetting=true; $("#resetError").textContent="";
+ for(const id of ["#confirmReset","#cancelReset","#resetStockBtn"])$(id).disabled=true;
+ try{ const result=await api("/api/stock/reset",{method:"POST",body:JSON.stringify({password:$("#resetPassword").value})}); $("#resetDialog").close(); toast(number(result.reset)+" ürünün stoğu sıfırlandı"); await load(); }
+ catch(err){ $("#resetError").textContent=err.message; }
+ finally{ $("#resetPassword").value=""; resetting=false; for(const id of ["#confirmReset","#cancelReset","#resetStockBtn"])$(id).disabled=false; }
+});
 load();
